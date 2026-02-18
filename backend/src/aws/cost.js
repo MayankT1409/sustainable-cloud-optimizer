@@ -3,12 +3,17 @@ import {
   GetCostAndUsageCommand,
 } from "@aws-sdk/client-cost-explorer";
 
-const client = new CostExplorerClient({
-  region: "us-east-1",
-});
+import { assumeCustomerRole } from "./assumeRole.js";
 
-export async function getMonthlyCost() {
+export async function getMonthlyCost(roleArn) {
   try {
+    const tempCreds = await assumeCustomerRole(roleArn);
+
+    const client = new CostExplorerClient({
+      region: "us-east-1", // Cost Explorer always us-east-1
+      credentials: tempCreds,
+    });
+
     const command = new GetCostAndUsageCommand({
       TimePeriod: {
         Start: "2026-02-01",

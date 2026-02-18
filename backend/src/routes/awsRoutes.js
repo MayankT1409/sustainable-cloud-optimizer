@@ -5,36 +5,51 @@ import { calculateCO2 } from "../aws/emissions.js";
 
 const router = express.Router();
 
-router.get("/summary", async (req, res) => {
+router.post("/summary", async (req, res) => {
   try {
-    const ec2Data = await getInstances();
-    const cost = await getMonthlyCost();
-    // const co2 = calculateCO2(ec2Data.details); // Assuming calculateCO2 can handle the list
+    const roleArn = req.body?.roleArn;
+
+    if (!roleArn) {
+      return res.status(400).json({ error: "roleArn is required" });
+    }
+
+    const ec2Data = await getInstances(roleArn);
+    const cost = await getMonthlyCost(roleArn);
+    const estimatedCO2 = calculateCO2(ec2Data.count);
 
     res.json({
       activeInstances: ec2Data.count,
       monthlyCost: cost,
-      // estimatedCO2: co2,
+      estimatedCO2,
     });
+
   } catch (err) {
-    console.error("Error fetching summary data, returning mock data:", err);
-    // Fallback mock data as requested by user
-    res.json({
-      activeInstances: 1,
-      monthlyCost: 15.50,
-      // estimatedCO2: 0,
-    });
+    console.error("Error fetching summary:", err);
+    res.status(500).json({ error: "Failed to fetch summary" });
   }
 });
 
-router.get("/instances", async (req, res) => {
+
+
+
+router.post("/instances", async (req, res) => {
   try {
-    const ec2Data = await getInstances();
+    const roleArn = req.body?.roleArn;
+
+    if (!roleArn) {
+      return res.status(400).json({ error: "roleArn is required" });
+    }
+
+    const ec2Data = await getInstances(roleArn);
+
     res.json(ec2Data.details);
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Error fetching instances" });
   }
 });
+
+
 
 export default router;

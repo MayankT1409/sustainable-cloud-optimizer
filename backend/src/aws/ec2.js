@@ -1,41 +1,42 @@
 import { EC2Client, DescribeInstancesCommand } from "@aws-sdk/client-ec2";
+import { assumeCustomerRole } from "./assumeRole.js";
 
-const client = new EC2Client({
-  region: process.env.AWS_REGION || "us-east-1",
-});
+export async function getInstances(roleArn) {
+  const tempCreds = await assumeCustomerRole(roleArn);
 
-export async function getInstances() {
-  try {
-    const data = await client.send(new DescribeInstancesCommand({}));
+  const client = new EC2Client({
+    region: "ap-south-1",
+    credentials: tempCreds,
+  });
 
-    const instances = [];
-    let runningCount = 0;
+  const data = await client.send(
+    new DescribeInstancesCommand({})
+  );
 
-    data.Reservations?.forEach((reservation) => {
-      reservation.Instances.forEach((instance) => {
-        const nameTag = instance.Tags?.find(t => t.Key === "Name")?.Value || instance.InstanceId;
+  let count = 0;
+  const details = [];
 
-        if (instance.State.Name === "running") {
-          runningCount++;
-        }
+  data.Reservations?.forEach((reservation) => {
+    reservation.Instances.forEach((instance) => {
+      if (instance.State.Name === "running") count++;
 
-        instances.push({
-          id: instance.InstanceId,
-          name: nameTag,
-          type: instance.InstanceType,
-          region: client.config.region,
-          state: instance.State.Name,
-          launchTime: instance.LaunchTime,
-          publicIp: instance.PublicIpAddress,
-          privateIp: instance.PrivateIpAddress,
-          tags: instance.Tags
-        });
+      const nameTag = instance.Tags?.find(
+        (tag) => tag.Key === "Name"
+      );
+
+      details.push({
+        id: instance.InstanceId,
+        name: nameTag?.Value || "N/A",
+        type: instance.InstanceType,
+        region: "ap-south-1",
+        state: instance.State.Name,
+        launchTime: instance.LaunchTime,
       });
     });
+  });
 
-    return { count: runningCount, details: instances };
-  } catch (error) {
-    console.error("EC2 Fetch Error:", error);
-    throw error; // Re-throw to be handled by the route
-  }
+  return {
+    count,
+    details,
+  };
 }

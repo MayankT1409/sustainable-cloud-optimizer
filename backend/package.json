@@ -5,17 +5,22 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "start": "node -r dotenv/config src/index.js",
+    "dev": "node --watch -r dotenv/config src/index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "@aws-sdk/client-cloudwatch": "^3.991.0",
-    "@aws-sdk/client-cost-explorer": "^3.991.0",
-    "@aws-sdk/client-ec2": "^3.991.0",
+    "@aws-sdk/client-cloudwatch": "^3.893.0",
+    "@aws-sdk/client-cost-explorer": "^3.893.0",
+    "@aws-sdk/client-ec2": "^3.893.0",
+    "@aws-sdk/client-sts": "^3.893.0",
+    "@azure/arm-compute": "^23.3.0",
+    "@azure/arm-resources": "^7.0.0",
+    "@azure/identity": "^4.13.0",
+    "@google-cloud/compute": "^6.7.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1"

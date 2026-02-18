@@ -3,7 +3,10 @@ import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card"
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from "recharts";
 import { DollarSign, TrendingDown, Leaf, Activity } from "lucide-react";
 
+import { useCloud } from "../context/CloudContext";
+
 export function Dashboard() {
+    const { selectedCloud } = useCloud();
     const [data, setData] = useState({
         totalCost: 0,
         savingsPotential: 0,
@@ -16,16 +19,46 @@ export function Dashboard() {
 
     useEffect(() => {
         async function fetchData() {
+            if (!selectedCloud) return; // Should be handled by redirection but safe guard
+
+            setLoading(true);
             try {
-                const response = await fetch('/api/aws/summary');
+                let endpoint = '';
+                let body = {};
+
+                switch (selectedCloud) {
+                    case 'aws':
+                        endpoint = '/api/aws/summary';
+                        body = { roleArn: "arn:aws:iam::432732423121:role/SCO-ReadOnly-Role" };
+                        break;
+                    case 'azure':
+                        endpoint = '/api/azure/summary';
+                        body = { subscriptionId: "mock-sub-id" };
+                        break;
+                    case 'gcp':
+                        endpoint = '/api/gcp/summary';
+                        body = { projectId: "mock-project-id" };
+                        break;
+                    default:
+                        return;
+                }
+
+                const response = await fetch(endpoint, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(body),
+                });
+
                 const result = await response.json();
 
                 setData({
                     totalCost: parseFloat(result.monthlyCost || 0),
-                    savingsPotential: 0, // Logic to be implemented or mocked for now
+                    savingsPotential: 0, // Mock logic could be added
                     activeServices: result.activeInstances || 0,
                     carbonFootprint: result.estimatedCO2 || 0,
-                    costTrend: [ // Mock trend data as backend doesn't provide history yet
+                    costTrend: [ // Mock trend for now
                         { date: '2023-10-01', cost: 40 },
                         { date: '2023-10-02', cost: 42 },
                         { date: '2023-10-03', cost: 38 },
@@ -34,11 +67,12 @@ export function Dashboard() {
                         { date: '2023-10-06', cost: 55 },
                         { date: '2023-10-07', cost: 48 },
                     ],
-                    serviceBreakdown: [ // Mock breakdown
-                        { name: 'EC2', cost: parseFloat(result.monthlyCost || 0), color: '#3b82f6' },
+                    serviceBreakdown: [
+                        { name: selectedCloud.toUpperCase() + ' Compute', cost: parseFloat(result.monthlyCost || 0), color: '#3b82f6' },
                         { name: 'Others', cost: 0, color: '#10b981' },
                     ]
                 });
+
             } catch (error) {
                 console.error("Failed to fetch dashboard data:", error);
             } finally {
@@ -47,7 +81,7 @@ export function Dashboard() {
         }
 
         fetchData();
-    }, []);
+    }, [selectedCloud]);
 
     const stats = [
         {
