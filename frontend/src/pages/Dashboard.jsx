@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from "recharts";
-import { DollarSign, TrendingDown, Leaf, Activity } from "lucide-react";
+import { DollarSign, TrendingDown, Leaf, Activity, AlertTriangle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import { useCloud } from "../context/CloudContext";
 
 export function Dashboard() {
-    const { selectedCloud } = useCloud();
+    const { selectedCloud, awsRoleArn, credentialsLoading } = useCloud();
+    const navigate = useNavigate();
     const [data, setData] = useState({
         totalCost: 0,
         savingsPotential: 0,
@@ -29,7 +31,11 @@ export function Dashboard() {
                 switch (selectedCloud) {
                     case 'aws':
                         endpoint = '/api/aws/summary';
-                        body = { roleArn: "arn:aws:iam::432732423121:role/SCO-ReadOnly-Role" };
+                        if (!awsRoleArn) {
+                            setLoading(false);
+                            return;
+                        }
+                        body = { roleArn: awsRoleArn };
                         break;
                     case 'azure':
                         endpoint = '/api/azure/summary';
@@ -81,7 +87,7 @@ export function Dashboard() {
         }
 
         fetchData();
-    }, [selectedCloud]);
+    }, [selectedCloud, awsRoleArn]);
 
     const stats = [
         {
@@ -114,7 +120,28 @@ export function Dashboard() {
         },
     ];
 
-    if (loading) {
+    // Show warning if AWS selected but no credentials configured
+    if (selectedCloud === 'aws' && !credentialsLoading && !awsRoleArn) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full gap-4">
+                <div className="flex items-center gap-3 bg-orange-500/10 border border-orange-500/20 text-orange-400 rounded-xl px-6 py-4">
+                    <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                    <div>
+                        <p className="font-medium">AWS Credentials Not Configured</p>
+                        <p className="text-sm text-orange-300/70 mt-0.5">Please add your AWS Role ARN to view your dashboard.</p>
+                    </div>
+                </div>
+                <button
+                    onClick={() => navigate('/aws-credentials')}
+                    className="bg-orange-600 hover:bg-orange-500 text-white font-medium px-6 py-2.5 rounded-xl transition-all"
+                >
+                    Configure AWS Credentials
+                </button>
+            </div>
+        );
+    }
+
+    if (loading || credentialsLoading) {
         return (
             <div className="flex items-center justify-center h-full">
                 <div className="text-slate-400 animate-pulse">Loading dashboard data...</div>
