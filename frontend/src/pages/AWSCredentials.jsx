@@ -63,7 +63,7 @@ export function AWSCredentials() {
             }, { merge: true });
 
             setSuccess(true);
-            setTimeout(() => navigate("/"), 1500);
+            setTimeout(() => navigate("/dashboard"), 1500);
         } catch (err) {
             console.error("Failed to save credentials:", err);
             setError("Failed to save credentials. Please try again.");
@@ -129,11 +129,16 @@ export function AWSCredentials() {
 
                     {/* Info box */}
                     <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-4 mb-6">
-                        <p className="text-xs text-blue-300 font-medium mb-1">How to get your Role ARN?</p>
-                        <ol className="text-xs text-slate-400 space-y-1 list-decimal list-inside">
-                            <li>Go to AWS Console → IAM → Roles</li>
-                            <li>Find or create a role with <code className="text-orange-300">ReadOnlyAccess</code> policy</li>
-                            <li>Copy the Role ARN (starts with <code className="text-orange-300">arn:aws:iam::</code>)</li>
+                        <p className="text-xs text-blue-300 font-medium mb-1">Setup Instructions:</p>
+                        <ol className="text-xs text-slate-400 space-y-2 list-decimal list-inside">
+                            <li>Create an IAM Role with <code className="text-orange-300">ReadOnlyAccess</code> policy.</li>
+                            <li>In the <b>Trust Relationships</b> tab, click <b>Edit trust policy</b>.</li>
+                            <li>Add this statement to trust our backend (copy the ARN below):
+                                <div className="mt-1.5 p-2 bg-slate-950/50 rounded-lg border border-slate-800 font-mono text-[10px] text-slate-500 break-all">
+                                    arn:aws:iam::055237683302:user/sco-saas-backe
+                                </div>
+                            </li>
+                            <li>Paste your Role ARN below to connect.</li>
                         </ol>
                     </div>
 

@@ -6,7 +6,11 @@ const router = express.Router();
 
 router.post("/summary", async (req, res) => {
     try {
-        const subscriptionId = req.body?.subscriptionId || process.env.AZURE_SUBSCRIPTION_ID || "mock-sub-id";
+        const { subscriptionId, tenantId, clientId, clientSecret } = req.body;
+
+        if (!subscriptionId) {
+            return res.status(400).json({ error: "subscriptionId is required" });
+        }
 
         const data = await getVMs(subscriptionId);
         const estimatedCO2 = calculateCO2(data.count);
@@ -22,18 +26,21 @@ router.post("/summary", async (req, res) => {
 
     } catch (err) {
         console.error("Error fetching Azure summary:", err);
-        res.status(500).json({ error: "Failed to fetch Azure summary" });
+        res.status(500).json({ error: err.message || "Failed to fetch Azure summary" });
     }
 });
 
 router.post("/instances", async (req, res) => {
     try {
-        const subscriptionId = req.body?.subscriptionId || process.env.AZURE_SUBSCRIPTION_ID || "mock-sub-id";
+        const { subscriptionId, tenantId, clientId, clientSecret } = req.body;
+        if (!subscriptionId) {
+            return res.status(400).json({ error: "subscriptionId is required" });
+        }
         const data = await getVMs(subscriptionId);
         res.json(data.details);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Error fetching Azure instances" });
+        console.error("Error fetching Azure instances:", err);
+        res.status(500).json({ error: err.message || "Error fetching Azure instances" });
     }
 });
 

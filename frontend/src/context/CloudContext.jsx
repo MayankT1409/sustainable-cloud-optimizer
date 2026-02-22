@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, onSnapshot } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useAuth } from "./AuthContext";
 
@@ -14,32 +14,58 @@ export function CloudProvider({ children }) {
 
     const [awsRoleArn, setAwsRoleArn] = useState(null);
     const [awsAccountId, setAwsAccountId] = useState(null);
+
+    // Azure credentials
+    const [azureSubId, setAzureSubId] = useState(null);
+    const [azureTenantId, setAzureTenantId] = useState(null);
+    const [azureClientId, setAzureClientId] = useState(null);
+    const [azureClientSecret, setAzureClientSecret] = useState(null);
+
+    // GCP credentials
+    const [gcpProjectId, setGcpProjectId] = useState(null);
+    const [gcpServiceAccountKey, setGcpServiceAccountKey] = useState(null);
+
     const [credentialsLoading, setCredentialsLoading] = useState(false);
 
-    // Load AWS credentials from Firestore when user logs in
+    // Listen to credentials from Firestore in real-time
     useEffect(() => {
-        async function loadCredentials() {
-            if (!currentUser) {
-                setAwsRoleArn(null);
-                setAwsAccountId(null);
-                return;
-            }
-            setCredentialsLoading(true);
-            try {
-                const docRef = doc(db, "users", currentUser.uid);
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    setAwsRoleArn(data.awsRoleArn || null);
-                    setAwsAccountId(data.awsAccountId || null);
-                }
-            } catch (err) {
-                console.error("Failed to load AWS credentials:", err);
-            } finally {
-                setCredentialsLoading(false);
-            }
+        if (!currentUser) {
+            setAwsRoleArn(null);
+            setAwsAccountId(null);
+            setAzureSubId(null);
+            setAzureTenantId(null);
+            setAzureClientId(null);
+            setAzureClientSecret(null);
+            setGcpProjectId(null);
+            setGcpServiceAccountKey(null);
+            return;
         }
-        loadCredentials();
+
+        setCredentialsLoading(true);
+        const docRef = doc(db, "users", currentUser.uid);
+
+        const unsubscribe = onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                // AWS
+                setAwsRoleArn(data.awsRoleArn || null);
+                setAwsAccountId(data.awsAccountId || null);
+                // Azure
+                setAzureSubId(data.azureSubId || null);
+                setAzureTenantId(data.azureTenantId || null);
+                setAzureClientId(data.azureClientId || null);
+                setAzureClientSecret(data.azureClientSecret || null);
+                // GCP
+                setGcpProjectId(data.gcpProjectId || null);
+                setGcpServiceAccountKey(data.gcpServiceAccountKey || null);
+            }
+            setCredentialsLoading(false);
+        }, (err) => {
+            console.error("Failed to sync cloud credentials:", err);
+            setCredentialsLoading(false);
+        });
+
+        return () => unsubscribe();
     }, [currentUser]);
 
     useEffect(() => {
@@ -59,6 +85,18 @@ export function CloudProvider({ children }) {
                 setAwsRoleArn,
                 awsAccountId,
                 setAwsAccountId,
+                azureSubId,
+                setAzureSubId,
+                azureTenantId,
+                setAzureTenantId,
+                azureClientId,
+                setAzureClientId,
+                azureClientSecret,
+                setAzureClientSecret,
+                gcpProjectId,
+                setGcpProjectId,
+                gcpServiceAccountKey,
+                setGcpServiceAccountKey,
                 credentialsLoading,
             }}
         >

@@ -1,4 +1,5 @@
 import { Bell, Search, User } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export function Header() {
     return (
@@ -19,11 +20,11 @@ export function Header() {
                     <Bell className="h-5 w-5" />
                     <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-accent animate-pulse"></span>
                 </button>
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-purple-600 p-[1px]">
+                <Link to="/profile" className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-purple-600 p-[1px] hover:scale-105 transition-transform">
                     <div className="h-full w-full rounded-full bg-slate-900 flex items-center justify-center">
                         <User className="h-4 w-4 text-slate-100" />
                     </div>
-                </div>
+                </Link>
             </div>
         </header>
     );

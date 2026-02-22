@@ -14,18 +14,19 @@ router.post("/summary", async (req, res) => {
     }
 
     const ec2Data = await getInstances(roleArn);
-    const cost = await getMonthlyCost(roleArn);
+    const costData = await getMonthlyCost(roleArn);
     const estimatedCO2 = calculateCO2(ec2Data.count);
 
     res.json({
       activeInstances: ec2Data.count,
-      monthlyCost: cost,
+      monthlyCost: costData.total,
+      costBreakdown: costData.breakdown,
       estimatedCO2,
     });
 
   } catch (err) {
     console.error("Error fetching summary:", err);
-    res.status(500).json({ error: "Failed to fetch summary" });
+    res.status(500).json({ error: err.message || "Failed to fetch summary" });
   }
 });
 
@@ -45,8 +46,8 @@ router.post("/instances", async (req, res) => {
     res.json(ec2Data.details);
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Error fetching instances" });
+    console.error("Error fetching instances:", err);
+    res.status(500).json({ error: err.message || "Error fetching instances" });
   }
 });
 

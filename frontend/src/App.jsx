@@ -8,6 +8,9 @@ import { AzureVM } from "./pages/AzureVM";
 import { GCPCompute } from "./pages/GCPCompute";
 import { Login } from "./pages/Login";
 import { AWSCredentials } from "./pages/AWSCredentials";
+import { AzureCredentials } from "./pages/AzureCredentials";
+import { GCPCredentials } from "./pages/GCPCredentials";
+import { Profile } from "./pages/Profile";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
 // Protected route: redirects to /login if not authenticated
@@ -25,12 +28,29 @@ function AppRoutes() {
       {/* Public route */}
       <Route path="/login" element={<Login />} />
 
-      {/* Protected: AWS credential setup */}
       <Route
         path="/aws-credentials"
         element={
           <ProtectedRoute>
             <AWSCredentials />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/azure-credentials"
+        element={
+          <ProtectedRoute>
+            <AzureCredentials />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/gcp-credentials"
+        element={
+          <ProtectedRoute>
+            <GCPCredentials />
           </ProtectedRoute>
         }
       />
@@ -56,6 +76,7 @@ function AppRoutes() {
                 <Route path="/ec2" element={<EC2Optimization />} />
                 <Route path="/azure-vm" element={<AzureVM />} />
                 <Route path="/gcp-compute" element={<GCPCompute />} />
+                <Route path="/profile" element={<Profile />} />
                 <Route path="*" element={<div className="p-4 text-slate-400">Page not found</div>} />
               </Routes>
             </DashboardLayout>

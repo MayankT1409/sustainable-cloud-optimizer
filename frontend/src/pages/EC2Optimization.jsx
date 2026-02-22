@@ -1,15 +1,25 @@
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
-import { Search, Filter, MoreVertical, Cpu, PlayCircle, StopCircle, RefreshCw } from "lucide-react";
+import { Search, Filter, MoreVertical, Cpu, PlayCircle, StopCircle, RefreshCw, AlertTriangle, AlertCircle } from "lucide-react";
+import { useCloud } from "../context/CloudContext";
+import { useNavigate } from "react-router-dom";
 
 export function EC2Optimization() {
+    const { awsRoleArn, credentialsLoading } = useCloud();
+    const navigate = useNavigate();
     const [instances, setInstances] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
 
     async function fetchInstances() {
+        if (!awsRoleArn) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
+        setError("");
         try {
             const response = await fetch('/api/aws/instances', {
                 method: "POST",
@@ -17,16 +27,27 @@ export function EC2Optimization() {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    roleArn: "arn:aws:iam::432732423121:role/SCO-ReadOnly-Role"
+                    roleArn: awsRoleArn
                 }),
             });
 
             const data = await response.json();
 
-            setInstances(data);
+            if (!response.ok) {
+                throw new Error(data.error || "Failed to fetch instances");
+            }
+
+            if (Array.isArray(data)) {
+                setInstances(data);
+            } else {
+                console.error("Unexpected data format:", data);
+                setInstances([]);
+            }
 
         } catch (error) {
             console.error("Failed to fetch instances:", error);
+            setError(error.message);
+            setInstances([]);
         } finally {
             setLoading(false);
         }
@@ -35,13 +56,15 @@ export function EC2Optimization() {
 
 
     useEffect(() => {
-        fetchInstances();
-    }, []);
+        if (awsRoleArn) {
+            fetchInstances();
+        }
+    }, [awsRoleArn]);
 
-    const filteredInstances = instances.filter(instance =>
+    const filteredInstances = Array.isArray(instances) ? instances.filter(instance =>
         (instance.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (instance.id || "").toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    ) : [];
 
     const getStatusVariant = (status) => {
         switch (status) {
@@ -62,12 +85,32 @@ export function EC2Optimization() {
         }
     }
 
+    if (!credentialsLoading && !awsRoleArn) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[400px] gap-4">
+                <div className="flex items-center gap-3 bg-orange-500/10 border border-orange-500/20 text-orange-400 rounded-xl px-6 py-4">
+                    <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                    <div>
+                        <p className="font-medium">AWS Credentials Not Configured</p>
+                        <p className="text-sm text-orange-300/70 mt-0.5">Please add your AWS Role ARN to manage your EC2 instances.</p>
+                    </div>
+                </div>
+                <button
+                    onClick={() => navigate('/aws-credentials')}
+                    className="bg-orange-600 hover:bg-orange-500 text-white font-medium px-6 py-2.5 rounded-xl transition-all"
+                >
+                    Configure AWS Credentials
+                </button>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">EC2 Optimization</h2>
-                    <p className="text-slate-400">Manage and optimize your EC2 instances.</p>
+                    <h1 className="text-3xl font-bold tracking-tight text-white">All Services</h1>
+                    <p className="text-slate-400">Account-wide resource optimization across all regions.</p>
                 </div>
                 <div className="flex gap-2">
                     <button onClick={fetchInstances} className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-primary/25">
@@ -83,7 +126,7 @@ export function EC2Optimization() {
                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
                         <input
                             type="text"
-                            placeholder="Search instances..."
+                            placeholder="Search resources..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="h-9 w-full rounded-md border border-border bg-slate-950/50 pl-9 pr-4 text-sm outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-slate-100 placeholder:text-slate-500"
@@ -94,6 +137,12 @@ export function EC2Optimization() {
                     </button>
                 </CardHeader>
                 <CardContent>
+                    {error && (
+                        <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg px-4 py-3 mb-4 text-sm">
+                            <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                            {error}
+                        </div>
+                    )}
                     {loading ? (
                         <div className="p-8 text-center text-slate-400 animate-pulse">Scanning EC2 instances...</div>
                     ) : filteredInstances.length === 0 ? (
@@ -147,6 +196,6 @@ export function EC2Optimization() {
                     )}
                 </CardContent>
             </Card>
-        </div>
+        </div >
     );
 }

@@ -22,10 +22,10 @@ export function Login() {
         try {
             if (isSignUp) {
                 await register(email, password);
-                navigate("/aws-credentials");
+                navigate("/");
             } else {
                 await login(email, password);
-                navigate("/aws-credentials");
+                navigate("/");
             }
         } catch (err) {
             console.error(err);
@@ -73,8 +73,8 @@ export function Login() {
                             type="button"
                             onClick={() => { setIsSignUp(false); setError(""); }}
                             className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all duration-200 ${!isSignUp
-                                    ? "bg-blue-600 text-white shadow-lg"
-                                    : "text-slate-400 hover:text-slate-200"
+                                ? "bg-blue-600 text-white shadow-lg"
+                                : "text-slate-400 hover:text-slate-200"
                                 }`}
                         >
                             Sign In
@@ -83,8 +83,8 @@ export function Login() {
                             type="button"
                             onClick={() => { setIsSignUp(true); setError(""); }}
                             className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all duration-200 ${isSignUp
-                                    ? "bg-blue-600 text-white shadow-lg"
-                                    : "text-slate-400 hover:text-slate-200"
+                                ? "bg-blue-600 text-white shadow-lg"
+                                : "text-slate-400 hover:text-slate-200"
                                 }`}
                         >
                             Sign Up

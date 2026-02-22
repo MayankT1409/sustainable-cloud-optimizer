@@ -1,31 +1,58 @@
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
-import { Search, MoreVertical, RefreshCw } from "lucide-react";
+import { Search, MoreVertical, RefreshCw, AlertTriangle, AlertCircle } from "lucide-react";
 import { useCloud } from "../context/CloudContext";
+import { useNavigate } from "react-router-dom";
 
 export function GCPCompute() {
     const [instances, setInstances] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [loading, setLoading] = useState(true);
-    const { selectedCloud } = useCloud();
+    const [error, setError] = useState("");
+    const {
+        selectedCloud,
+        gcpProjectId, gcpServiceAccountKey,
+        credentialsLoading
+    } = useCloud();
+    const navigate = useNavigate();
 
     async function fetchInstances() {
+        if (!gcpProjectId) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
+        setError("");
         try {
             const response = await fetch('/api/gcp/instances', {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({}),
+                body: JSON.stringify({
+                    projectId: gcpProjectId,
+                    serviceAccountKey: gcpServiceAccountKey
+                }),
             });
 
             const data = await response.json();
-            setInstances(data);
+
+            if (!response.ok) {
+                throw new Error(data.error || "Failed to fetch GCP instances");
+            }
+
+            if (Array.isArray(data)) {
+                setInstances(data);
+            } else {
+                console.error("Unexpected data format:", data);
+                setInstances([]);
+            }
 
         } catch (error) {
             console.error("Failed to fetch GCP instances:", error);
+            setError(error.message);
+            setInstances([]);
         } finally {
             setLoading(false);
         }
@@ -37,16 +64,36 @@ export function GCPCompute() {
         }
     }, [selectedCloud]);
 
-    const filteredInstances = instances.filter(ins =>
+    const filteredInstances = Array.isArray(instances) ? instances.filter(ins =>
         (ins.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (ins.id || "").toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    ) : [];
 
     const getStatusVariant = (status) => {
         if (status === "RUNNING") return "success";
         if (status === "STOPPED" || status === "TERMINATED") return "danger";
         return "neutral";
     };
+
+    if (!credentialsLoading && !gcpProjectId) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[400px] gap-4">
+                <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl px-6 py-4">
+                    <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                    <div>
+                        <p className="font-medium">GCP Credentials Not Configured</p>
+                        <p className="text-sm text-red-300/70 mt-0.5">Please add your GCP Project details to manage your instances.</p>
+                    </div>
+                </div>
+                <button
+                    onClick={() => navigate('/gcp-credentials')}
+                    className="bg-red-600 hover:bg-red-500 text-white font-medium px-6 py-2.5 rounded-xl transition-all"
+                >
+                    Configure GCP Credentials
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -77,6 +124,12 @@ export function GCPCompute() {
                     </div>
                 </CardHeader>
                 <CardContent>
+                    {error && (
+                        <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg px-4 py-3 mb-4 text-sm">
+                            <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                            {error}
+                        </div>
+                    )}
                     {loading ? (
                         <div className="p-8 text-center text-slate-400 animate-pulse">Scanning GCP instances...</div>
                     ) : filteredInstances.length === 0 ? (

@@ -4,12 +4,22 @@ import { Cloud, Server, Database, Globe } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 
 export function CloudSelection() {
-    const { setSelectedCloud } = useCloud();
+    const { setSelectedCloud, awsRoleArn, azureSubId, gcpProjectId } = useCloud();
     const navigate = useNavigate();
 
     const handleSelect = (cloud) => {
         setSelectedCloud(cloud);
-        navigate("/dashboard");
+
+        // Check if credentials exist for the selected cloud
+        if (cloud === "aws" && !awsRoleArn) {
+            navigate("/aws-credentials");
+        } else if (cloud === "azure" && !azureSubId) {
+            navigate("/azure-credentials"); // Future route
+        } else if (cloud === "gcp" && !gcpProjectId) {
+            navigate("/gcp-credentials"); // Future route
+        } else {
+            navigate("/dashboard");
+        }
     };
 
     const clouds = [

@@ -1,32 +1,60 @@
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
-import { Search, Filter, MoreVertical, RefreshCw } from "lucide-react";
+import { Search, Filter, MoreVertical, RefreshCw, AlertTriangle, AlertCircle } from "lucide-react";
 import { useCloud } from "../context/CloudContext";
+import { useNavigate } from "react-router-dom";
 
 export function AzureVM() {
     const [vms, setVms] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [loading, setLoading] = useState(true);
-    const { selectedCloud } = useCloud();
+    const [error, setError] = useState("");
+    const {
+        selectedCloud,
+        azureSubId, azureTenantId, azureClientId, azureClientSecret,
+        credentialsLoading
+    } = useCloud();
+    const navigate = useNavigate();
 
     async function fetchVMs() {
+        if (!azureSubId) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
+        setError("");
         try {
             const response = await fetch('/api/azure/instances', {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
-                // Body can be dynamic if we implement subscription selection
-                body: JSON.stringify({}),
+                body: JSON.stringify({
+                    subscriptionId: azureSubId,
+                    tenantId: azureTenantId,
+                    clientId: azureClientId,
+                    clientSecret: azureClientSecret
+                }),
             });
 
             const data = await response.json();
-            setVms(data);
+
+            if (!response.ok) {
+                throw new Error(data.error || "Failed to fetch Azure VMs");
+            }
+
+            if (Array.isArray(data)) {
+                setVms(data);
+            } else {
+                console.error("Unexpected data format:", data);
+                setVms([]);
+            }
 
         } catch (error) {
             console.error("Failed to fetch Azure VMs:", error);
+            setError(error.message);
+            setVms([]);
         } finally {
             setLoading(false);
         }
@@ -38,10 +66,10 @@ export function AzureVM() {
         }
     }, [selectedCloud]);
 
-    const filteredVMs = vms.filter(vm =>
+    const filteredVMs = Array.isArray(vms) ? vms.filter(vm =>
         (vm.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (vm.id || "").toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    ) : [];
 
     const getStatusVariant = (status) => {
         // Map Azure statuses to badge variants
@@ -49,6 +77,26 @@ export function AzureVM() {
         if (status?.toLowerCase().includes("deallocated") || status?.toLowerCase().includes("stopped")) return "warning";
         return "neutral";
     };
+
+    if (!credentialsLoading && !azureSubId) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[400px] gap-4">
+                <div className="flex items-center gap-3 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl px-6 py-4">
+                    <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                    <div>
+                        <p className="font-medium">Azure Credentials Not Configured</p>
+                        <p className="text-sm text-blue-300/70 mt-0.5">Please add your Azure Service Principal details to manage your VMs.</p>
+                    </div>
+                </div>
+                <button
+                    onClick={() => navigate('/azure-credentials')}
+                    className="bg-blue-600 hover:bg-blue-500 text-white font-medium px-6 py-2.5 rounded-xl transition-all"
+                >
+                    Configure Azure Credentials
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -79,6 +127,12 @@ export function AzureVM() {
                     </div>
                 </CardHeader>
                 <CardContent>
+                    {error && (
+                        <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg px-4 py-3 mb-4 text-sm">
+                            <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                            {error}
+                        </div>
+                    )}
                     {loading ? (
                         <div className="p-8 text-center text-slate-400 animate-pulse">Scanning Azure VMs...</div>
                     ) : filteredVMs.length === 0 ? (

@@ -1,12 +1,20 @@
-import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Server, Settings, PieChart, LifeBuoy } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { LayoutDashboard, Server, Settings, PieChart, LifeBuoy, User, LogOut } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 import { useCloud } from "../../context/CloudContext";
+import { useAuth } from "../../context/AuthContext";
 
 export function Sidebar() {
     const location = useLocation();
     const { selectedCloud } = useCloud();
+    const { logout } = useAuth();
+    const navigate = useNavigate();
+
+    const handleLogout = async () => {
+        await logout();
+        navigate("/login");
+    };
 
     const getNavItems = () => {
         const common = [
@@ -15,17 +23,18 @@ export function Sidebar() {
 
         const specific = [];
         if (selectedCloud === 'aws') {
-            specific.push({ icon: Server, label: "EC2 Optimization", path: "/ec2" });
+            specific.push({ icon: Server, label: "All Services", path: "/ec2" });
         } else if (selectedCloud === 'azure') {
-            specific.push({ icon: Server, label: "VM Optimization", path: "/azure-vm" });
+            specific.push({ icon: Server, label: "All Services", path: "/azure-vm" });
         } else if (selectedCloud === 'gcp') {
-            specific.push({ icon: Server, label: "Compute Engine", path: "/gcp-compute" });
+            specific.push({ icon: Server, label: "All Services", path: "/gcp-compute" });
         }
 
         return [
             ...common,
             ...specific,
             { icon: PieChart, label: "Reports", path: "/reports" },
+            { icon: User, label: "Profile", path: "/profile" },
             { icon: Settings, label: "Settings", path: "/settings" },
         ];
     };
@@ -70,6 +79,13 @@ export function Sidebar() {
                 <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 hover:bg-slate-800/50 hover:text-slate-100 transition-colors">
                     <LifeBuoy className="h-5 w-5" />
                     Support
+                </button>
+                <button
+                    onClick={handleLogout}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
+                >
+                    <LogOut className="h-5 w-5" />
+                    Logout
                 </button>
             </div>
         </aside>
