@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
 import { Search, Filter, MoreVertical, Cpu, PlayCircle, StopCircle, RefreshCw, AlertTriangle, AlertCircle } from "lucide-react";
@@ -6,12 +7,20 @@ import { useCloud } from "../context/CloudContext";
 import { useNavigate } from "react-router-dom";
 
 export function EC2Optimization() {
-    const { awsRoleArn, credentialsLoading } = useCloud();
+    const { cloud: urlCloud } = useParams();
+    const { awsRoleArn, credentialsLoading, selectedCloud, setSelectedCloud } = useCloud();
     const navigate = useNavigate();
     const [instances, setInstances] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [accountId, setAccountId] = useState("");
+
+    useEffect(() => {
+        if (urlCloud && urlCloud !== selectedCloud) {
+            setSelectedCloud(urlCloud);
+        }
+    }, [urlCloud, selectedCloud, setSelectedCloud]);
 
     async function fetchInstances() {
         if (!awsRoleArn) {
@@ -20,6 +29,10 @@ export function EC2Optimization() {
         }
         setLoading(true);
         setError("");
+
+        // Extract A/C ID locally for display
+        const id = awsRoleArn.split(':')[4] || "Unknown";
+        setAccountId(id);
         try {
             const response = await fetch('/api/aws/instances', {
                 method: "POST",
@@ -108,8 +121,15 @@ export function EC2Optimization() {
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-white">All Services</h1>
+                <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-3xl font-bold tracking-tight text-white">All Services</h1>
+                        {accountId && (
+                            <div className="px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                                <span className="text-[10px] font-mono text-blue-300">A/C: {accountId}</span>
+                            </div>
+                        )}
+                    </div>
                     <p className="text-slate-400">Account-wide resource optimization across all regions.</p>
                 </div>
                 <div className="flex gap-2">
@@ -179,7 +199,7 @@ export function EC2Optimization() {
                                                 {new Date(instance.launchTime).toLocaleDateString()}
                                             </td>
                                             <td className="px-4 py-3">
-                                                <span className={`px-2 py-1 rounded-md text-xs font-bold ${getRecommendationColor("OPTIMIZED")}`}>
+                                                <span className={`px - 2 py - 1 rounded - md text - xs font - bold ${getRecommendationColor("OPTIMIZED")} `}>
                                                     OPTIMIZED
                                                 </span>
                                             </td>

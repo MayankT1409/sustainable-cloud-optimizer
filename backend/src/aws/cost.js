@@ -14,10 +14,17 @@ export async function getMonthlyCost(roleArn) {
       credentials: tempCreds,
     });
 
+    const now = new Date();
+    const endDate = now.toISOString().split('T')[0];
+    // Start from 6 months ago (1st of that month)
+    const startDate = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString().split('T')[0];
+
+    console.log(`[AWS] Querying 6-month history from ${startDate} to ${endDate}`);
+
     const command = new GetCostAndUsageCommand({
       TimePeriod: {
-        Start: "2026-02-01",
-        End: "2026-02-28",
+        Start: startDate,
+        End: endDate,
       },
       Granularity: "MONTHLY",
       Metrics: ["UnblendedCost"],
@@ -30,20 +37,36 @@ export async function getMonthlyCost(roleArn) {
     });
 
     const data = await client.send(command);
+    console.log(`[AWS] Cost Explorer returned ${data.ResultsByTime?.[0]?.Groups?.length || 0} service groups.`);
 
     let totalCost = 0;
     const breakdown = {};
+    const trend = [];
 
-    data.ResultsByTime?.[0]?.Groups?.forEach((group) => {
-      const service = group.Keys[0];
-      const amount = parseFloat(group.Metrics?.UnblendedCost?.Amount || 0);
-      breakdown[service] = amount;
-      totalCost += amount;
+    data.ResultsByTime?.forEach((timeBucket) => {
+      const monthTotal = parseFloat(timeBucket.Total?.UnblendedCost?.Amount || 0);
+      trend.push({
+        period: timeBucket.TimePeriod.Start,
+        cost: monthTotal.toFixed(2)
+      });
+
+      timeBucket.Groups?.forEach((group) => {
+        const service = group.Keys[0];
+        const amount = parseFloat(group.Metrics?.UnblendedCost?.Amount || 0);
+        if (amount > 0) {
+          // We only use the latest month's breakdown for the pie chart
+          // or we could sum them all, but typically users want to see "where is my money going NOW"
+          // Let's sum them for the 6-month total to match the user's "last 6 month" request
+          breakdown[service] = (breakdown[service] || 0) + amount;
+          totalCost += amount;
+        }
+      });
     });
 
     return {
       total: totalCost.toFixed(2),
       breakdown,
+      trend
     };
   } catch (error) {
     console.error("Cost Explorer Error:", error);

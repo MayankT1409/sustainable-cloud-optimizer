@@ -18,7 +18,7 @@ export function CloudSelection() {
         } else if (cloud === "gcp" && !gcpProjectId) {
             navigate("/gcp-credentials"); // Future route
         } else {
-            navigate("/dashboard");
+            navigate(`/${cloud}/dashboard`);
         }
     };
 

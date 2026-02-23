@@ -8,6 +8,7 @@ const router = express.Router();
 router.post("/summary", async (req, res) => {
   try {
     const roleArn = req.body?.roleArn;
+    console.log(`[AWS] Fetching summary for Role: ${roleArn}`);
 
     if (!roleArn) {
       return res.status(400).json({ error: "roleArn is required" });
@@ -17,10 +18,16 @@ router.post("/summary", async (req, res) => {
     const costData = await getMonthlyCost(roleArn);
     const estimatedCO2 = calculateCO2(ec2Data.count);
 
+    // Extract Account ID from Role ARN (arn:aws:iam::ACCOUNT_ID:role/...)
+    const accountId = roleArn.split(':')[4] || "Unknown";
+
     res.json({
+      accountId,
       activeInstances: ec2Data.count,
-      monthlyCost: costData.total,
+      totalCost6Months: costData.total,
+      monthlyCost: costData.trend[costData.trend.length - 1]?.cost || 0, // Latest month
       costBreakdown: costData.breakdown,
+      costTrend: costData.trend,
       estimatedCO2,
     });
 
@@ -36,6 +43,7 @@ router.post("/summary", async (req, res) => {
 router.post("/instances", async (req, res) => {
   try {
     const roleArn = req.body?.roleArn;
+    console.log(`[AWS] Fetching instances for Role: ${roleArn}`);
 
     if (!roleArn) {
       return res.status(400).json({ error: "roleArn is required" });

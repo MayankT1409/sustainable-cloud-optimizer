@@ -72,10 +72,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <DashboardLayout>
               <Routes>
+                {/* Provider Specific Routes */}
+                <Route path="/:cloud/dashboard" element={<Dashboard />} />
+                <Route path="/:cloud/resources" element={<EC2Optimization />} />
+
+                {/* Legacy / Direct Routes */}
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/ec2" element={<EC2Optimization />} />
-                <Route path="/azure-vm" element={<AzureVM />} />
-                <Route path="/gcp-compute" element={<GCPCompute />} />
+                <Route path="/azure-resources" element={<AzureVM />} />
+                <Route path="/gcp-resources" element={<GCPCompute />} />
+
                 <Route path="/profile" element={<Profile />} />
                 <Route path="*" element={<div className="p-4 text-slate-400">Page not found</div>} />
               </Routes>

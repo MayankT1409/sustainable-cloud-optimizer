@@ -1,21 +1,20 @@
-import { useState, useEffect } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
-import { Badge } from "../components/ui/Badge";
-import { Search, MoreVertical, RefreshCw, AlertTriangle, AlertCircle } from "lucide-react";
-import { useCloud } from "../context/CloudContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 export function GCPCompute() {
-    const [instances, setInstances] = useState([]);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+    const { cloud: urlCloud } = useParams();
     const {
         selectedCloud,
+        setSelectedCloud,
         gcpProjectId, gcpServiceAccountKey,
         credentialsLoading
     } = useCloud();
     const navigate = useNavigate();
+
+    useEffect(() => {
+        if (urlCloud && urlCloud !== selectedCloud) {
+            setSelectedCloud(urlCloud);
+        }
+    }, [urlCloud, selectedCloud, setSelectedCloud]);
 
     async function fetchInstances() {
         if (!gcpProjectId) {

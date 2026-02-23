@@ -2,20 +2,29 @@ import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from "recharts";
 import { DollarSign, TrendingDown, Leaf, Activity, AlertTriangle } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { useCloud } from "../context/CloudContext";
 
 export function Dashboard() {
+    const { cloud: urlCloud } = useParams();
     const {
         selectedCloud,
+        setSelectedCloud,
         awsRoleArn,
         azureSubId, azureTenantId, azureClientId, azureClientSecret,
         gcpProjectId, gcpServiceAccountKey,
         credentialsLoading
     } = useCloud();
     const navigate = useNavigate();
+
+    useEffect(() => {
+        if (urlCloud && urlCloud !== selectedCloud) {
+            setSelectedCloud(urlCloud);
+        }
+    }, [urlCloud, selectedCloud, setSelectedCloud]);
     const [data, setData] = useState({
+        accountId: '',
         totalCost: 0,
         savingsPotential: 0,
         activeServices: 0,
@@ -92,19 +101,15 @@ export function Dashboard() {
                     : [];
 
                 setData({
-                    totalCost: parseFloat(result.monthlyCost || 0),
+                    accountId: result.accountId,
+                    totalCost: parseFloat(result.totalCost6Months || 0),
                     savingsPotential: 0,
                     activeServices: result.costBreakdown ? Object.keys(result.costBreakdown).length : (result.activeInstances || 0),
                     carbonFootprint: result.estimatedCO2 || 0,
-                    costTrend: [
-                        { date: '2023-10-01', cost: (parseFloat(result.monthlyCost) * 0.9).toFixed(2) },
-                        { date: '2023-10-02', cost: (parseFloat(result.monthlyCost) * 0.95).toFixed(2) },
-                        { date: '2023-10-03', cost: (parseFloat(result.monthlyCost) * 0.85).toFixed(2) },
-                        { date: '2023-10-04', cost: result.monthlyCost },
-                        { date: '2023-10-05', cost: (parseFloat(result.monthlyCost) * 0.92).toFixed(2) },
-                        { date: '2023-10-06', cost: (parseFloat(result.monthlyCost) * 1.1).toFixed(2) },
-                        { date: '2023-10-07', cost: result.monthlyCost },
-                    ],
+                    costTrend: result.costTrend ? result.costTrend.map(t => ({
+                        date: new Date(t.period).toLocaleDateString('en-US', { month: 'short' }),
+                        cost: parseFloat(t.cost)
+                    })) : [],
                     serviceBreakdown: breakdown
                 });
 
@@ -193,9 +198,24 @@ export function Dashboard() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-                <p className="text-slate-400">Overview of your cloud infrastructure and costs.</p>
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-3xl font-bold tracking-tight text-white">
+                            {selectedCloud ? `${selectedCloud.toUpperCase()} Dashboard` : 'Dashboard'}
+                        </h2>
+                        {data.accountId && (
+                            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full animate-in fade-in zoom-in duration-500">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                </span>
+                                <span className="text-[10px] font-mono text-emerald-400 font-bold uppercase tracking-tighter">Live Account: {data.accountId}</span>
+                            </div>
+                        )}
+                    </div>
+                    <p className="text-slate-400 font-medium">Real-time infrastructure and cost analysis.</p>
+                </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -219,7 +239,7 @@ export function Dashboard() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
                 <Card className="col-span-4">
                     <CardHeader>
-                        <CardTitle>Cost Trend (Last 7 Days)</CardTitle>
+                        <CardTitle>Cost Trend (Last 6 Months)</CardTitle>
                     </CardHeader>
                     <CardContent className="pl-2">
                         <div className="h-[300px] w-full">
@@ -259,8 +279,13 @@ export function Dashboard() {
                 </Card>
 
                 <Card className="col-span-3">
-                    <CardHeader>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle>Service Breakdown</CardTitle>
+                        {data.accountId && (
+                            <div className="flex items-center gap-2 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                                <span className="text-[10px] font-mono text-blue-300">A/C: {data.accountId}</span>
+                            </div>
+                        )}
                     </CardHeader>
                     <CardContent>
                         <div className="h-[300px] w-full flex items-center justify-center relative">
@@ -280,14 +305,18 @@ export function Dashboard() {
                                         ))}
                                     </Pie>
                                     <Tooltip
-                                        formatter={(value) => `$${value}`}
+                                        formatter={(value) => value < 0.01 ? `$${parseFloat(value).toFixed(6)}` : `$${parseFloat(value).toFixed(2)}`}
                                         contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f8fafc' }}
                                     />
                                 </PieChart>
                             </ResponsiveContainer>
                             {/* Legend Overlay or Center Text if needed */}
                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                <span className="text-3xl font-bold">${data.totalCost.toLocaleString()}</span>
+                                <span className="text-2xl font-bold">
+                                    {data.totalCost < 1 && data.totalCost > 0
+                                        ? `$${data.totalCost.toFixed(4)}`
+                                        : `$${data.totalCost.toLocaleString()}`}
+                                </span>
                                 <span className="text-xs text-slate-400 uppercase tracking-widest">Total</span>
                             </div>
                         </div>
@@ -295,14 +324,16 @@ export function Dashboard() {
                             {data.serviceBreakdown.map((item) => (
                                 <div key={item.name} className="flex items-center gap-2">
                                     <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }}></div>
-                                    <span className="text-sm text-slate-300">{item.name}</span>
-                                    <span className="text-sm font-medium ml-auto">${item.cost}</span>
+                                    <span className="text-sm text-slate-300 truncate max-w-[120px]">{item.name}</span>
+                                    <span className="text-sm font-medium ml-auto">
+                                        {item.cost < 0.01 && item.cost > 0 ? `<$0.01` : `$${item.cost.toFixed(2)}`}
+                                    </span>
                                 </div>
                             ))}
                         </div>
                     </CardContent>
                 </Card>
             </div>
-        </div>
+        </div >
     );
 }
