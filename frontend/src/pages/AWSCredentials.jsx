@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { doc, setDoc, getDoc } from "firebase/firestore";
-import { db } from "../lib/firebase";
 import { Shield, Key, Hash, Loader2, CheckCircle2, AlertCircle, LogOut } from "lucide-react";
 
 export function AWSCredentials() {
@@ -16,15 +14,17 @@ export function AWSCredentials() {
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState("");
 
-    // Load existing credentials from Firestore
+    // Load existing credentials from backend
     useEffect(() => {
         async function loadCredentials() {
             if (!currentUser) return;
             try {
-                const docRef = doc(db, "users", currentUser.uid);
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
+                const token = await getIdToken();
+                const res = await fetch("/api/auth/credentials", {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
                     if (data.awsRoleArn) setRoleArn(data.awsRoleArn);
                     if (data.awsAccountId) setAccountId(data.awsAccountId);
                 }
@@ -53,15 +53,22 @@ export function AWSCredentials() {
 
         setLoading(true);
         try {
-            // Save to Firestore
-            const docRef = doc(db, "users", currentUser.uid);
-            await setDoc(docRef, {
-                email: currentUser.email,
-                awsRoleArn: roleArn.trim(),
-                awsAccountId: accountId.trim(),
-                updatedAt: new Date().toISOString(),
-            }, { merge: true });
-
+            const token = await getIdToken();
+            const res = await fetch("/api/auth/credentials", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    awsRoleArn: roleArn.trim(),
+                    awsAccountId: accountId.trim(),
+                }),
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || "Save failed");
+            }
             setSuccess(true);
             setTimeout(() => navigate("/dashboard"), 1500);
         } catch (err) {

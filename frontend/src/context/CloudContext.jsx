@@ -1,12 +1,10 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { doc, setDoc, getDoc, onSnapshot } from "firebase/firestore";
-import { db } from "../lib/firebase";
 import { useAuth } from "./AuthContext";
 
 const CloudContext = createContext();
 
 export function CloudProvider({ children }) {
-    const { currentUser } = useAuth();
+    const { currentUser, getIdToken } = useAuth();
 
     const [selectedCloud, setSelectedCloud] = useState(() => {
         return localStorage.getItem("selectedCloud") || null;
@@ -27,7 +25,7 @@ export function CloudProvider({ children }) {
 
     const [credentialsLoading, setCredentialsLoading] = useState(false);
 
-    // Listen to credentials from Firestore in real-time
+    // Load credentials from backend API
     useEffect(() => {
         if (!currentUser) {
             setAwsRoleArn(null);
@@ -41,31 +39,32 @@ export function CloudProvider({ children }) {
             return;
         }
 
-        setCredentialsLoading(true);
-        const docRef = doc(db, "users", currentUser.uid);
-
-        const unsubscribe = onSnapshot(docRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                // AWS
-                setAwsRoleArn(data.awsRoleArn || null);
-                setAwsAccountId(data.awsAccountId || null);
-                // Azure
-                setAzureSubId(data.azureSubId || null);
-                setAzureTenantId(data.azureTenantId || null);
-                setAzureClientId(data.azureClientId || null);
-                setAzureClientSecret(data.azureClientSecret || null);
-                // GCP
-                setGcpProjectId(data.gcpProjectId || null);
-                setGcpServiceAccountKey(data.gcpServiceAccountKey || null);
+        async function loadFromBackend() {
+            setCredentialsLoading(true);
+            try {
+                const token = await getIdToken();
+                const res = await fetch("/api/auth/credentials", {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setAwsRoleArn(data.awsRoleArn || null);
+                    setAwsAccountId(data.awsAccountId || null);
+                    setAzureSubId(data.azureSubId || null);
+                    setAzureTenantId(data.azureTenantId || null);
+                    setAzureClientId(data.azureClientId || null);
+                    setAzureClientSecret(data.azureClientSecret || null);
+                    setGcpProjectId(data.gcpProjectId || null);
+                    setGcpServiceAccountKey(data.gcpServiceAccountKey || null);
+                }
+            } catch (err) {
+                console.error("Failed to load cloud credentials:", err);
+            } finally {
+                setCredentialsLoading(false);
             }
-            setCredentialsLoading(false);
-        }, (err) => {
-            console.error("Failed to sync cloud credentials:", err);
-            setCredentialsLoading(false);
-        });
+        }
 
-        return () => unsubscribe();
+        loadFromBackend();
     }, [currentUser]);
 
     useEffect(() => {

@@ -1,16 +1,20 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { doc, setDoc, getDoc } from "firebase/firestore";
-import { db } from "../lib/firebase";
 import { Shield, Key, Loader2, CheckCircle2, AlertCircle, Globe } from "lucide-react";
 
 export function GCPCredentials() {
-    const { currentUser } = useAuth();
+    const { currentUser, getIdToken } = useAuth();
     const navigate = useNavigate();
 
-    const [projectId, setProjectId] = useState("");
-    const [serviceAccountKey, setServiceAccountKey] = useState("");
+    const [projectId, setProjectId] = useState("demo-gcp-project-123");
+    const [serviceAccountKey, setServiceAccountKey] = useState(JSON.stringify({
+        "type": "service_account",
+        "project_id": "demo-gcp-project-123",
+        "private_key_id": "abc123",
+        "client_email": "demo@demo-gcp-project-123.iam.gserviceaccount.com",
+        "client_id": "123456789"
+    }, null, 2));
 
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
@@ -21,10 +25,12 @@ export function GCPCredentials() {
         async function loadCredentials() {
             if (!currentUser) return;
             try {
-                const docRef = doc(db, "users", currentUser.uid);
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
+                const token = await getIdToken();
+                const res = await fetch("/api/auth/credentials", {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
                     if (data.gcpProjectId) setProjectId(data.gcpProjectId);
                     if (data.gcpServiceAccountKey) setServiceAccountKey(data.gcpServiceAccountKey);
                 }
@@ -49,13 +55,22 @@ export function GCPCredentials() {
 
         setLoading(true);
         try {
-            const docRef = doc(db, "users", currentUser.uid);
-            await setDoc(docRef, {
-                gcpProjectId: projectId.trim(),
-                gcpServiceAccountKey: serviceAccountKey.trim(),
-                updatedAt: new Date().toISOString(),
-            }, { merge: true });
-
+            const token = await getIdToken();
+            const res = await fetch("/api/auth/credentials", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    gcpProjectId: projectId.trim(),
+                    gcpServiceAccountKey: serviceAccountKey.trim(),
+                }),
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || "Save failed");
+            }
             setSuccess(true);
             setTimeout(() => navigate("/dashboard"), 1500);
         } catch (err) {

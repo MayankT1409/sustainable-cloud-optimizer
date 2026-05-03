@@ -1,18 +1,16 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { doc, setDoc, getDoc } from "firebase/firestore";
-import { db } from "../lib/firebase";
 import { Shield, Key, Hash, Loader2, CheckCircle2, AlertCircle, LogOut, Lock } from "lucide-react";
 
 export function AzureCredentials() {
-    const { currentUser, logout } = useAuth();
+    const { currentUser, logout, getIdToken } = useAuth();
     const navigate = useNavigate();
 
-    const [subId, setSubId] = useState("");
-    const [tenantId, setTenantId] = useState("");
-    const [clientId, setClientId] = useState("");
-    const [clientSecret, setClientSecret] = useState("");
+    const [subId, setSubId] = useState("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx");
+    const [tenantId, setTenantId] = useState("yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy");
+    const [clientId, setClientId] = useState("zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz");
+    const [clientSecret, setClientSecret] = useState("demo-azure-client-secret-2024");
 
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
@@ -23,10 +21,12 @@ export function AzureCredentials() {
         async function loadCredentials() {
             if (!currentUser) return;
             try {
-                const docRef = doc(db, "users", currentUser.uid);
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
+                const token = await getIdToken();
+                const res = await fetch("/api/auth/credentials", {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
                     if (data.azureSubId) setSubId(data.azureSubId);
                     if (data.azureTenantId) setTenantId(data.azureTenantId);
                     if (data.azureClientId) setClientId(data.azureClientId);
@@ -53,15 +53,24 @@ export function AzureCredentials() {
 
         setLoading(true);
         try {
-            const docRef = doc(db, "users", currentUser.uid);
-            await setDoc(docRef, {
-                azureSubId: subId.trim(),
-                azureTenantId: tenantId.trim(),
-                azureClientId: clientId.trim(),
-                azureClientSecret: clientSecret.trim(),
-                updatedAt: new Date().toISOString(),
-            }, { merge: true });
-
+            const token = await getIdToken();
+            const res = await fetch("/api/auth/credentials", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    azureSubId: subId.trim(),
+                    azureTenantId: tenantId.trim(),
+                    azureClientId: clientId.trim(),
+                    azureClientSecret: clientSecret.trim(),
+                }),
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || "Save failed");
+            }
             setSuccess(true);
             setTimeout(() => navigate("/dashboard"), 1500);
         } catch (err) {

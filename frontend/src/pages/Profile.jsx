@@ -2,8 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCloud } from "../context/CloudContext";
-import { doc, setDoc } from "firebase/firestore";
-import { db } from "../lib/firebase";
 import {
     User, Mail, Shield, Key, Hash,
     Loader2, CheckCircle2, AlertCircle,
@@ -12,7 +10,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
 
 export function Profile() {
-    const { currentUser, logout } = useAuth();
+    const { currentUser, logout, getIdToken } = useAuth();
     const {
         awsRoleArn, awsAccountId, setAwsRoleArn, setAwsAccountId,
         azureSubId, azureTenantId, azureClientId, azureClientSecret,
@@ -64,16 +62,15 @@ export function Profile() {
         setSuccess("");
 
         try {
-            const docRef = doc(db, "users", currentUser.uid);
-            let updateData = { updatedAt: new Date().toISOString() };
+            const token = await getIdToken();
+            let payload = {};
 
             if (provider === "aws") {
-                updateData = { ...updateData, awsRoleArn: awsData.roleArn.trim(), awsAccountId: awsData.accountId.trim() };
+                payload = { awsRoleArn: awsData.roleArn.trim(), awsAccountId: awsData.accountId.trim() };
                 setAwsRoleArn(awsData.roleArn.trim());
                 setAwsAccountId(awsData.accountId.trim());
             } else if (provider === "azure") {
-                updateData = {
-                    ...updateData,
+                payload = {
                     azureSubId: azureData.subId.trim(),
                     azureTenantId: azureData.tenantId.trim(),
                     azureClientId: azureData.clientId.trim(),
@@ -84,8 +81,7 @@ export function Profile() {
                 setAzureClientId(azureData.clientId.trim());
                 setAzureClientSecret(azureData.clientSecret.trim());
             } else if (provider === "gcp") {
-                updateData = {
-                    ...updateData,
+                payload = {
                     gcpProjectId: gcpData.projectId.trim(),
                     gcpServiceAccountKey: gcpData.serviceAccountKey.trim()
                 };
@@ -93,14 +89,19 @@ export function Profile() {
                 setGcpServiceAccountKey(gcpData.serviceAccountKey.trim());
             }
 
-            await setDoc(docRef, updateData, { merge: true });
-
-            // Backend update (optional if context is enough, but good practice)
-            await fetch("/api/auth/credentials", {
+            const res = await fetch("/api/auth/credentials", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(updateData)
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`,
+                },
+                body: JSON.stringify(payload),
             });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || "Save failed");
+            }
 
             setSuccess(`${provider.toUpperCase()} credentials updated successfully!`);
             setTimeout(() => setSuccess(""), 3000);
